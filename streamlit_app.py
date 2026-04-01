@@ -1,112 +1,363 @@
 import streamlit as st
-from textblob import TextBlob
+import requests
 import pandas as pd
 import matplotlib.pyplot as plt
+import yfinance as yf
+
+# -----------------------------
+# HuggingFace FinBERT API
+# -----------------------------
+API_URL = "https://api-inference.huggingface.co/models/ProsusAI/finbert"
+
+headers = {
+    "Authorization": "Bearer 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"
+}
+
+def get_sentiment(text):
+
+    response = requests.post(
+        API_URL,
+        headers=headers,
+        json={"inputs": text}
+    )
+
+    result = response.json()
+
+    if isinstance(result, list):
+
+        predictions = result[0]
+
+        best = max(predictions, key=lambda x: x['score'])
+
+        return best['label'], best['score']
+
+    return "neutral", 0.5
+
 
 # -----------------------------
 # Page Config
 # -----------------------------
-st.set_page_config(page_title="Stock Sentiment Analyzer", layout="centered")
-
-st.title("📊 AI Financial News Sentiment Analyzer")
-st.write("Analyze stock sentiment from financial news headlines")
-
-# -----------------------------
-# Default News
-# -----------------------------
-default_news = [
-    "Company profits increased this quarter",
-    "Stock prices are falling due to market crash",
-    "New product launch receives positive response",
-    "Company faces legal issues",
-    "Strong growth expected in upcoming months"
-]
+st.set_page_config(
+    page_title="Financial News Sentiment And Stock Trends Analyzer",
+    layout="wide"
+)
 
 # -----------------------------
-# User Input Section
+# Background UI
 # -----------------------------
-stock = st.text_input("Enter Stock / Company Name")
+st.markdown("""
+<style>
 
-st.subheader("📰 Enter Financial News Headlines")
+.stApp {
+background: linear-gradient(to right, #0f2027, #203a43, #2c5364);
+color:white;
+}
 
-news_list = []
+h1,h2,h3,h4 {
+color:white;
+}
 
-for i in range(3):
-    news = st.text_input(f"Headline {i+1}")
-    if news:
-        news_list.append(news)
+label {
+color:white !important;
+font-size:18px;
+}
 
-# Add default sample option
-if st.checkbox("Use sample financial news"):
-    news_list = default_news
+[data-testid="stMetricValue"] {
+color:#00e6ff;
+font-size:26px;
+font-weight:bold;
+}
+
+[data-testid="stMetricLabel"] {
+color:white;
+font-size:16px;
+}
+
+.stButton>button {
+background-color:#00c6ff;
+color:white;
+border-radius:10px;
+height:3em;
+width:100%;
+font-size:18px;
+}
+
+</style>
+""", unsafe_allow_html=True)
 
 # -----------------------------
-# Sentiment Function
+# Title
 # -----------------------------
-def analyze_sentiment(news_list):
-    results = []
-    scores = []
+st.title("📊 Financial News Sentiment And Stock Trends Analyzer")
 
-    for news in news_list:
-        polarity = TextBlob(news).sentiment.polarity
-        scores.append(polarity)
-
-        if polarity > 0:
-            sentiment = "Positive 😊"
-        elif polarity < 0:
-            sentiment = "Negative 😟"
-        else:
-            sentiment = "Neutral 😐"
-
-        results.append([news, sentiment, round(polarity,2)])
-
-    avg_score = sum(scores)/len(scores)
-    return results, scores, avg_score
+st.write(
+"AI system that analyzes stock trend, sentiment and predicts future prices."
+)
 
 # -----------------------------
-# Analyze Button
+# User Input
 # -----------------------------
-if st.button("🔍 Analyze Sentiment"):
+stock = st.text_input(
+"Enter Stock Name (Example: TCS, INFY, RELIANCE)"
+)
+
+# -----------------------------
+# Button
+# -----------------------------
+if st.button("Analyze Stock"):
 
     if stock == "":
-        st.warning("⚠ Please enter company name")
 
-    elif len(news_list) == 0:
-        st.warning("⚠ Please enter at least one news headline")
+        st.warning("Please enter stock name")
 
     else:
-        st.subheader(f"📌 Analysis for {stock}")
 
-        results, scores, avg_score = analyze_sentiment(news_list)
+        ticker = stock + ".NS"
 
-        df = pd.DataFrame(results, columns=["News", "Sentiment", "Score"])
-        st.dataframe(df)
+        data = yf.download(
+            ticker,
+            period="6mo"
+        )
 
-        # -----------------------------
-        # Chart
-        # -----------------------------
-        st.subheader("📈 Sentiment Score Distribution")
+        data = data.dropna()
 
-        plt.figure()
-        plt.hist(scores)
-        plt.xlabel("Sentiment Score")
-        plt.ylabel("Frequency")
+        if data.empty:
 
-        st.pyplot(plt)
+            st.error("Stock not found")
 
-        # -----------------------------
-        # Decision Logic
-        # -----------------------------
-        st.subheader("💡 Trading Decision")
-
-        if avg_score > 0.1:
-            st.success("📈 BUY Recommendation")
-        elif avg_score < -0.1:
-            st.error("📉 SELL Recommendation")
         else:
-            st.warning("⏳ HOLD Recommendation")
 
-        st.metric("Average Sentiment Score", round(avg_score,2))
+            # -----------------------------
+            # price metrics
+            # -----------------------------
+            last_day_price = float(
+                data["Close"].iloc[-1]
+            )
 
-        # Progress Bar Indicator
-        st.progress(min(max((avg_score+1)/2,0),1))
+            previous_price = float(
+                data["Close"].iloc[-2]
+            )
+
+            high_price = float(
+                data["High"].max()
+            )
+
+            low_price = float(
+                data["Low"].min()
+            )
+
+            change = last_day_price - previous_price
+
+            if change > 0:
+                trend = "Uptrend 📈"
+
+            elif change < 0:
+                trend = "Downtrend 📉"
+
+            else:
+                trend = "Stable ➖"
+
+            # -----------------------------
+            # prediction logic
+            # -----------------------------
+            recent_prices = data["Close"].tail(5)
+
+            price_changes = recent_prices.diff().dropna()
+
+            avg_change = float(
+                price_changes.mean()
+            )
+
+            predicted_today = float(
+                last_day_price + avg_change
+            )
+
+            predicted_next_day = float(
+                predicted_today + avg_change
+            )
+
+            future_prices = [
+
+                float(last_day_price),
+
+                float(predicted_today),
+
+                float(predicted_next_day)
+            ]
+
+            # -----------------------------
+            # pseudo news
+            # -----------------------------
+            news_samples = [
+
+                f"{stock} financial performance is strong",
+
+                f"{stock} stock trend is {trend}",
+
+                f"{stock} growth outlook based on recent data"
+            ]
+
+            sentiments = []
+
+            scores = []
+
+            for news in news_samples:
+
+                label, score = get_sentiment(news)
+
+                sentiments.append(label)
+
+                scores.append(score)
+
+            avg_sentiment = sum(scores)/len(scores)
+
+            # -----------------------------
+            # Metrics
+            # -----------------------------
+            st.subheader("📊 Stock Metrics")
+
+            col1,col2,col3,col4,col5 = st.columns(5)
+
+            col1.metric(
+                "Last Close",
+                round(last_day_price,2)
+            )
+
+            col2.metric(
+                "Predicted Today",
+                round(predicted_today,2)
+            )
+
+            col3.metric(
+                "Predicted Next Day",
+                round(predicted_next_day,2)
+            )
+
+            col4.metric(
+                "6M High",
+                round(high_price,2)
+            )
+
+            col5.metric(
+                "6M Low",
+                round(low_price,2)
+            )
+
+            st.write("Market Trend:", trend)
+
+            # -----------------------------
+            # historical graph
+            # -----------------------------
+            # -----------------------------
+            # Compact Graph Layout
+            # -----------------------------
+
+            st.subheader("📊 Graph Analysis")
+
+            col1,col2,col3 = st.columns(3)
+
+
+            # Historical graph
+            with col1:
+
+                st.write("Historical")
+
+                fig1 = plt.figure(figsize=(3,2))
+
+                plt.plot(data["Close"])
+
+                plt.xticks(rotation=45, fontsize=7)
+
+                plt.yticks(fontsize=7)
+
+                plt.title("Price", fontsize=9)
+
+                plt.tight_layout()
+
+                st.pyplot(fig1)
+
+
+            # Prediction graph
+            with col2:
+
+                st.write("Prediction")
+
+                fig2 = plt.figure(figsize=(3,2))
+
+                plt.plot(["Last","Today","Next"],future_prices)
+
+                plt.title("Future", fontsize=9)
+
+                plt.xticks(fontsize=8)
+
+                plt.yticks(fontsize=8)
+
+                plt.tight_layout()
+
+                st.pyplot(fig2)
+
+
+            # Sentiment graph
+            with col3:
+
+                st.write("Sentiment")
+
+                fig3 = plt.figure(figsize=(3,2))
+
+                plt.bar(sentiments,scores)
+
+                plt.xticks(fontsize=8)
+
+                plt.yticks(fontsize=8)
+
+                plt.tight_layout()
+
+                st.pyplot(fig3)
+
+            # -----------------------------
+            # insight text
+            # -----------------------------
+            st.subheader("📄 Prediction Explanation")
+
+            st.write(f"""
+
+Stock Name: {stock}
+
+Last Closing Price: {round(last_day_price,2)}
+
+Predicted Price Today: {round(predicted_today,2)}
+
+Predicted Price Next Day: {round(predicted_next_day,2)}
+
+Highest Price in 6 months: {round(high_price,2)}
+
+Lowest Price in 6 months: {round(low_price,2)}
+
+Market Trend: {trend}
+
+Average Sentiment Score: {round(avg_sentiment,2)}
+
+""")
+
+            # -----------------------------
+            # recommendation
+            # -----------------------------
+            st.subheader("💡 AI Recommendation")
+
+            if trend == "Uptrend 📈" and avg_sentiment > 0.5:
+
+                st.success(
+                    "BUY signal detected 📈"
+                )
+
+            elif trend == "Downtrend 📉":
+
+                st.error(
+                    "SELL signal detected 📉"
+                )
+
+            else:
+
+                st.warning(
+                    "HOLD recommendation ⏳"
+                )

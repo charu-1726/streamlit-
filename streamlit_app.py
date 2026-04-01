@@ -126,62 +126,63 @@ if st.button("Analyze Stock"):
             st.error("Stock not found")
 
         else:
+            
 
-        # -----------------------------
-        # price metrics
-        # -----------------------------
-        
-        # ensure numeric values
-        data["Close"] = pd.to_numeric(data["Close"], errors="coerce")
-        data["High"] = pd.to_numeric(data["High"], errors="coerce")
-        data["Low"] = pd.to_numeric(data["Low"], errors="coerce")
-        
-        # remove duplicate columns if any
-        data = data.loc[:, ~data.columns.duplicated()]
-        
-        # last 2 closing prices
-        last_day_price = float(data["Close"].dropna().iloc[-1])
-        
-        previous_price = float(data["Close"].dropna().iloc[-2])
-        
-        # highest & lowest
-        high_price = float(data["High"].max())
-        
-        low_price = float(data["Low"].min())
-        
-        # trend calculation
-        change = last_day_price - previous_price
-        
-        if change > 0:
-            trend = "Uptrend 📈"
-        
-        elif change < 0:
-            trend = "Downtrend 📉"
-        
-        else:
-            trend = "Stable ➖"
-        
-        
-        # -----------------------------
-        # prediction logic
-        # -----------------------------
-        
-        recent_prices = data["Close"].dropna().tail(5)
-        
-        price_changes = recent_prices.diff().dropna()
-        
-        avg_change = float(price_changes.mean())
-        
-        # predictions
-        predicted_today = float(last_day_price + avg_change)
-        
-        predicted_tomorrow = float(predicted_today + avg_change)
-        
-        future_prices = [
-            last_day_price,
-            predicted_today,
-            predicted_tomorrow
-        ]
+            # -----------------------------
+            # price metrics
+            # -----------------------------
+            
+            # ensure numeric values
+            data["Close"] = pd.to_numeric(data["Close"], errors="coerce")
+            data["High"] = pd.to_numeric(data["High"], errors="coerce")
+            data["Low"] = pd.to_numeric(data["Low"], errors="coerce")
+            
+            # remove duplicate columns if any
+            data = data.loc[:, ~data.columns.duplicated()]
+            
+            # last 2 closing prices
+            last_day_price = float(data["Close"].dropna().iloc[-1])
+            
+            previous_price = float(data["Close"].dropna().iloc[-2])
+            
+            # highest & lowest
+            high_price = float(data["High"].max())
+            
+            low_price = float(data["Low"].min())
+            
+            # trend calculation
+            change = last_day_price - previous_price
+            
+            if change > 0:
+                trend = "Uptrend 📈"
+            
+            elif change < 0:
+                trend = "Downtrend 📉"
+            
+            else:
+                trend = "Stable ➖"
+            
+            
+            # -----------------------------
+            # prediction logic
+            # -----------------------------
+            
+            recent_prices = data["Close"].dropna().tail(5)
+            
+            price_changes = recent_prices.diff().dropna()
+            
+            avg_change = float(price_changes.mean())
+            
+            # predictions
+            predicted_today = float(last_day_price + avg_change)
+            
+            predicted_tomorrow = float(predicted_today + avg_change)
+            
+            future_prices = [
+                last_day_price,
+                predicted_today,
+                predicted_tomorrow
+            ]
         
 
             # -----------------------------
